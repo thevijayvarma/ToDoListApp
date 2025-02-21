@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 400px;
+            margin: 50px auto;
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .task-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .task-item label {
+            flex: 1;
+        }
+        .task-item button {
+            background-color: #ef4444;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .add-task {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .add-task input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        .add-task button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .completed {
+            text-decoration: line-through;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>To Do List</h2>
+    <div class="task-list" id="taskList"></div>
+    <div class="add-task">
+        <label for="newTaskInput"></label><input type="text" id="newTaskInput" placeholder="Add a new task">
+        <button onclick="addTask()">Add Task</button>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', loadTasks);
+
+    function loadTasks() {
+        fetch('http://localhost:8081/api/toDos/') // Use the correct port here
+            .then(response => response.json())
+            .then(tasks => {
+                const taskList = document.getElementById('taskList');
+                taskList.innerHTML = '';
+                tasks.forEach(task => {
+                    addTaskToList(task);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading tasks:', error);
+            });
+    }
+
+    function addTask() {
+        const taskInput = document.getElementById('newTaskInput');
+        const taskValue = taskInput.value.trim();
+        if (taskValue === '') {
+            alert('Please enter a task');
+            return;
+        }
+
+        fetch('http://localhost:8081/api/toDos/', { // Correct port here
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title: taskValue, completed: false })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                addTaskToList(data); // Add the new task to the list
+                document.getElementById('newTaskInput').value = ''; // Clear the input
+            })
+            .catch(error => {
+                console.error('Error adding task:', error);
+            });
+    }
+
+    function addTaskToList(task) {
+        const taskList = document.getElementById('taskList');
+
+        const taskItem = document.createElement('div');
+        taskItem.classList.add('task-item');
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = task.completed;
+        checkbox.onchange = function () {
+            updateTaskStatus(task.id, checkbox.checked);
+        };
+
+        const label = document.createElement('label');
+        label.textContent = task.title;
+        if (task.completed) {
+            label.classList.add('completed');
+        }
+
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.onclick = function () {
+            deleteTask(task.id, taskItem);
+        };
+
+        taskItem.appendChild(checkbox);
+        taskItem.appendChild(label);
+        taskItem.appendChild(deleteButton);
+        taskList.appendChild(taskItem);
+    }
+
+    function updateTaskStatus(id, completed) {
+        fetch(`http://localhost:8081/api/toDos/${id}`, { // Correct port here
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ completed: completed })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to update task');
+                }
+                return response.json();
+            })
+            .then(updatedTask => {
+                const taskItems = document.querySelectorAll('.task-item');
+                taskItems.forEach(item => {
+                    const label = item.querySelector('label');
+                    if (label.textContent === updatedTask.title) {
+                        if (updatedTask.completed) {
+                            label.classList.add('completed');
+                        } else {
+                            label.classList.remove('completed');
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error updating task status:', error);
+            });
+    }
+
+    function deleteTask(id, taskItem) {
+        fetch(`http://localhost:8081/api/toDos/${id}`, { // Correct port here
+            method: 'DELETE'
+        })
+            .then(response => {
+                if (response.ok) {
+                    taskItem.remove();
+                } else {
+                    alert('Failed to delete task');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting task:', error);
+            });
+    }
+
+</script>
+</body>
+</html>
